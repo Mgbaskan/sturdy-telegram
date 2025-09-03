@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Advanced Loading Page</title>
+  <style>
+    :root{
+      --bg: #0b1020;
+      --bg-2:#0e1630;
+      --fg: #e6ecff;
+      --muted:#9aa7c7;
+      --brand:#6aa6ff;
+      --accent:#9b8cff;
+      --good:#4dd4a9;
+      --warn:#ffcc66;
+      --error:#ff6b6b;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 18px;
+    }
+    [data-theme="light"]{
+      --bg:#f5f7ff; --bg-2:#eef2ff; --fg:#0e1325; --muted:#516080; --brand:#3b82f6; --accent:#7c3aed; --good:#10b981; --warn:#d97706; --error:#ef4444; --shadow: 0 18px 40px rgba(20,20,40,.18);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      color:var(--fg); background: radial-gradient(1200px 800px at 70% -10%, rgba(106,166,255,.15), transparent 60%), linear-gradient(120deg, var(--bg), var(--bg-2));
+      overflow:hidden; transition: background .6s ease, color .6s ease;
+    }
+
+    /* ---------- Header (Theme toggle) ---------- */
+    .topbar{
+      position:fixed; inset: 16px 16px auto 16px; display:flex; justify-content:space-between; align-items:center; z-index:5;
+    }
+    .toggle{ appearance:none; cursor:pointer; border:none; outline:none; display:inline-flex; align-items:center; gap:.5rem; background: rgba(255,255,255,.06); color:var(--fg); padding:10px 14px; border-radius:999px; box-shadow:var(--shadow); backdrop-filter: blur(6px); transition: transform .15s ease;}
+    .toggle:active{ transform: scale(.98) }
+
+    /* ---------- Loader Card ---------- */
+    .wrap{ position:fixed; inset:0; display:grid; place-items:center; padding:28px; }
+
+    .card{
+      position:relative; width:min(760px, 92vw); border-radius: var(--radius); background: rgba(255,255,255,.06); box-shadow: var(--shadow); overflow:hidden;
+      border:1px solid rgba(255,255,255,.12); backdrop-filter: blur(10px);
+    }
+    .card::before{ /* animated gradient border glow */
+      content:""; position:absolute; inset:-2px; border-radius: calc(var(--radius) + 2px);
+      padding:2px; background: conic-gradient(from 0deg, var(--brand), var(--accent), var(--good), var(--brand));
+      -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude; animation: spin 12s linear infinite;
+      opacity:.22; pointer-events:none;
+    }
+    @keyframes spin{ to{ transform: rotate(1turn) } }
+
+    .inner{ position:relative; display:grid; grid-template-columns: 1.2fr .8fr; gap:22px; padding:28px; }
+    @media (max-width: 760px){ .inner{ grid-template-columns: 1fr; } }
+
+    /* Left side (logo + progress) */
+    .brandrow{ display:flex; align-items:center; gap:14px; margin-bottom:10px; }
+    .logo{ width:44px; height:44px; border-radius:12px; display:grid; place-items:center; position:relative; overflow:hidden; }
+    .logo svg{ width:26px; height:26px }
+
+    .blob{ position:absolute; inset:-40% -40% auto auto; width:180%; height:180%; filter: blur(20px); opacity:.7; animation: blob 18s ease-in-out infinite; background: radial-gradient(circle at 30% 30%, var(--brand), transparent 40%), radial-gradient(circle at 70% 70%, var(--accent), transparent 45%);}
+    @keyframes blob{ 0%,100%{ transform: translate(0,0) scale(1)} 25%{ transform: translate(-10%,8%) scale(1.1)} 50%{ transform: translate(6%,-6%) scale(1.05)} 75%{ transform: translate(-4%,2%) scale(1.12)} }
+
+    .title{ font-weight:800; letter-spacing:.2px; font-size: clamp(22px, 3.2vw, 30px); }
+    .subtitle{ color:var(--muted); font-size:14px }
+
+    .progress{
+      margin-top:18px; background: linear-gradient( to bottom, rgba(255,255,255,.08), rgba(255,255,255,.03)); padding:14px; border-radius: 14px; border:1px solid rgba(255,255,255,.12);
+    }
+    .bar{ height:12px; background: rgba(255,255,255,.08); border-radius: 999px; overflow:hidden; position:relative; }
+    .bar > span{ position:absolute; inset:0 auto 0 0; width:0%; background: linear-gradient(90deg, var(--brand), var(--accent)); border-radius:inherit; box-shadow: 0 0 24px rgba(106,166,255,.5) inset; transition: width .4s cubic-bezier(.22,.61,.36,1), filter .4s; }
+    .barstripe{ position:absolute; inset:0; background: linear-gradient(90deg, rgba(255,255,255,.18) 12%, transparent 12% 24%, rgba(255,255,255,.18) 24% 36%, transparent 36% 48%, rgba(255,255,255,.18) 48% 60%, transparent 60% 72%, rgba(255,255,255,.18) 72% 84%, transparent 84% 100%); background-size: 160px 100%; mix-blend-mode: overlay; animation: move 1.4s linear infinite; opacity:.45 }
+    @keyframes move{ to{ background-position: 160px 0 } }
+
+    .row{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:10px; }
+    .pct{ font-variant-numeric: tabular-nums; font-weight:700; }
+    .status{ color:var(--muted); font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+
+    .dots{ display:inline-grid; grid-auto-flow:column; gap:6px; margin-left:6px }
+    .dots i{ width:6px; height:6px; border-radius:50%; background: currentColor; opacity:.6; animation: dot 1.4s ease-in-out infinite; }
+    .dots i:nth-child(2){ animation-delay:.15s }
+    .dots i:nth-child(3){ animation-delay:.3s }
+    @keyframes dot{ 0%, 80%, 100%{ transform: scale(.6); opacity:.4 } 40%{ transform: scale(1); opacity:1 } }
+
+    .tasks{ margin-top:12px; display:grid; gap:10px; }
+    .task{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 10px; border-radius:10px; background: rgba(255,255,255,.04); border:1px dashed rgba(255,255,255,.12); font-size:14px }
+    .task b{ font-weight:600 }
+    .pill{ font-size:12px; padding:6px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.06) }
+
+    .ring{
+      margin:auto; width:190px; aspect-ratio:1; display:grid; place-items:center; position:relative; contain:layout;
+    }
+    .ring svg{ position:absolute; inset:0; transform: rotate(-90deg); }
+    .ring .kpi{ font-weight:800; font-size:34px; }
+    .ring .kpi small{ font-weight:600; color:var(--muted); font-size:12px; display:block; margin-top:2px }
+
+    .tip{
+      margin-top:18px; font-size:14px; color:var(--muted); background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius: 12px; padding:12px 14px;
+    }
+
+    .footer{
+      display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:18px; flex-wrap:wrap;
+    }
+    .btn{
+      appearance:none; cursor:not-allowed; border:none; outline:none; padding:12px 16px; border-radius:12px; background: linear-gradient(90deg, var(--brand), var(--accent)); color:white; font-weight:700; letter-spacing:.3px; box-shadow: var(--shadow); opacity:.5; transition: transform .1s ease, opacity .2s ease, filter .2s ease;
+    }
+    .btn.ready{ cursor:pointer; opacity:1; filter: drop-shadow(0 8px 18px rgba(106,166,255,.35)); }
+    .btn:active{ transform: translateY(1px) }
+
+    /* ---------- App Content (revealed after load) ---------- */
+    .app{
+      position:fixed; inset:0; display:grid; place-items:center; opacity:0; pointer-events:none; transform: translateY(12px) scale(.98);
+      transition: opacity .6s ease, transform .6s cubic-bezier(.2,.8,.2,1);
+    }
+    body.loaded .wrap{ opacity:0; transform: scale(.98); transition: opacity .5s ease, transform .5s ease; }
+    body.loaded .app{ opacity:1; pointer-events:auto; transform: translateY(0) scale(1) }
+
+    .appbox{
+      width:min(900px, 92vw); border-radius: 22px; padding:32px; background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); box-shadow: var(--shadow);
+    }
+    .grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap:16px; margin-top:16px }
+    @media (max-width: 760px){ .grid{ grid-template-columns: 1fr 1fr } }
+    .skeleton{ height:96px; border-radius: 16px; background: linear-gradient(90deg, rgba(255,255,255,.06), rgba(255,255,255,.12), rgba(255,255,255,.06)); background-size: 200% 100%; animation: shimmer 1.6s infinite linear; }
+    @keyframes shimmer{ to{ background-position: -200% 0 } }
+
+    /* Accessibility */
+    @media (prefers-reduced-motion: reduce){
+      *{ animation-duration: .01ms !important; animation-iteration-count:1 !important; transition-duration: .01ms !important }
+      .barstripe{ display:none }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar" role="toolbar">
+    <button class="toggle" id="themeToggle" aria-pressed="false" title="Toggle Theme (Light/Dark)">
+      <span id="modeLabel">🌙 Dark</span>
+    </button>
+  </div>
+
+  <main class="wrap" aria-label="Loader">
+    <section class="card" role="group" aria-roledescription="loading panel">
+      <div class="inner">
+        <!-- Left -->
+        <div>
+          <div class="brandrow">
+            <div class="logo" aria-hidden="true">
+              <div class="blob"></div>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M4 12a8 8 0 1 1 16 0c0 2.485-1.134 4.7-2.91 6.146l.59 2.354-2.354-.59A7.983 7.983 0 0 1 12 20 8 8 0 0 1 4 12Z"/>
+                <path d="M9 12h6M12 9v6"/>
+              </svg>
+            </div>
+            <div>
+              <div class="title">App is Preparing</div>
+              <div class="subtitle" id="phase">Initializing…</div>
+            </div>
+          </div>
+
+          <div class="progress" aria-live="polite">
+            <div class="bar" aria-hidden="true">
+              <span id="bar"></span>
+              <div class="barstripe"></div>
+            </div>
+            <div class="row">
+              <div class="status" id="status">Loading resources <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
+              <div class="pct"><span id="pct">0</span>%</div>
+            </div>
+            <div class="tasks" id="tasks">
+              <!-- task rows are injected here -->
+            </div>
+          </div>
+
+          <div class="tip" id="tip" role="note">Tip: Keyboard shortcuts speed up your workflow. ⌘/Ctrl + K opens the menu.</div>
+
+          <div class="footer">
+            <div class="subtitle" id="eta">~ estimating…</div>
+            <button class="btn" id="enterBtn" disabled>Enter</button>
+          </div>
+        </div>
+
+        <!-- Right -->
+        <div>
+          <div class="ring" aria-hidden="true">
+            <svg viewBox="0 0 120 120">
+              <defs>
+                <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="currentColor"/>
+                  <stop offset="100%" stop-color="currentColor"/>
+                </linearGradient>
+              </defs>
+              <circle cx="60" cy="60" r="54" stroke="rgba(255,255,255,.12)" stroke-width="12" fill="none" />
+              <circle id="ring" cx="60" cy="60" r="54" stroke="url(#g)" stroke-width="12" stroke-linecap="round" fill="none" stroke-dasharray="339.292" stroke-dashoffset="339.292"/>
+            </svg>
+            <div class="kpi" id="kpi">0% <small id="phaseSmall">Initializing</small></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- App content (revealed) -->
+  <section class="app" aria-hidden="true" id="app">
+    <div class="appbox">
+      <h1 style="margin:0">Welcome! 🎉</h1>
+      <p style="margin-top:8px;color:var(--muted)">Loading completed. Replace this area with your app homepage.</p>
+      <div class="grid">
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // -------- Theme toggle --------
+    const root = document.documentElement;
+    const toggle = document.getElementById('themeToggle');
+    const label = document.getElementById('modeLabel');
+    
+    // Kullanıcının önceki tercihini yükle
+    const savedTheme = localStorage.getItem('theme');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    // Temayı ayarla: önce kaydedilmiş tercih, yoksa sistem tercihi
+    if (savedTheme) {
+        root.setAttribute('data-theme', savedTheme);
+    } else {
+        // Sistem tercihine göre otomatik ayarla
+        root.setAttribute('data-theme', systemPrefersDark ? 'dark' : 'light');
+    }
+
+    // Buton metnini ve durumunu güncelle
+    function updateThemeLabel() {
+        const isLight = root.getAttribute('data-theme') === 'light';
+        label.textContent = isLight ? '☀️ Light' : '🌙 Dark';
+        toggle.setAttribute('aria-pressed', isLight);
+        
+        // Yerel depolamaya kaydet
+        localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    }
+
+    // İlk yüklemede etiketi güncelle
+    updateThemeLabel();
+
+    // Tıklama olayını dinle
+    toggle.addEventListener('click', function() {
+        const currentTheme = root.getAttribute('data-theme');
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        
+        root.setAttribute('data-theme', newTheme);
+        updateThemeLabel();
+    });
+
+    // Sistem teması değişikliklerini dinle (isteğe bağlı)
+    const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    colorSchemeQuery.addEventListener('change', function(e) {
+        // Sadece kullanıcı manuel bir tercihte bulunmamışsa sistemi takip et
+        if (!localStorage.getItem('theme')) {
+            root.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+            updateThemeLabel();
+        }
+    });
+
+    // -------- Loading simulation --------
+    const bar = document.getElementById('bar');
+    const pct = document.getElementById('pct');
+    const status = document.getElementById('status');
+    const phase = document.getElementById('phase');
+    const phaseSmall = document.getElementById('phaseSmall');
+    const eta = document.getElementById('eta');
+    const enterBtn = document.getElementById('enterBtn');
+    const tasks = document.getElementById('tasks');
+    const ring = document.getElementById('ring');
+    const kpi = document.getElementById('kpi');
+    const tip = document.getElementById('tip');
+
+    // Loading simulation data
+    const loadingPhases = [
+      { name: "Initializing", duration: 800, tasks: ["System check", "Load core modules"] },
+      { name: "Loading resources", duration: 1500, tasks: ["Fetch assets", "Process images", "Load libraries"] },
+      { name: "Processing data", duration: 2000, tasks: ["Parse configuration", "Initialize database", "Cache data"] },
+      { name: "Finalizing", duration: 1200, tasks: ["Optimize performance", "Run security checks"] }
+    ];
+
+    const tips = [
+      "Tip: Keyboard shortcuts speed up your workflow. ⌘/Ctrl + K opens the menu.",
+      "Tip: You can customize this interface in settings once the app loads.",
+      "Tip: Use dark mode in low-light environments to reduce eye strain.",
+      "Tip: The app works offline for most features after initial loading."
+    ];
+
+    // Initialize loading simulation
+    let currentPhase = 0;
+    let progress = 0;
+    let totalDuration = loadingPhases.reduce((acc, phase) => acc + phase.duration, 0);
+
+    function updateProgress() {
+      // Update progress bar
+      bar.style.width = `${progress}%`;
+      pct.textContent = Math.round(progress);
+      
+      // Update circular progress
+      const circumference = 339.292;
+      const offset = circumference - (progress / 100) * circumference;
+      ring.style.strokeDashoffset = offset;
+      kpi.innerHTML = `${Math.round(progress)}% <small>${loadingPhases[currentPhase].name}</small>`;
+      
+      // Update status text
+      status.textContent = loadingPhases[currentPhase].name;
+      phase.textContent = loadingPhases[currentPhase].name + '…';
+      phaseSmall.textContent = loadingPhases[currentPhase].name;
+      
+      // Update ETA
+      const remaining = totalDuration - (progress / 100) * totalDuration;
+      const seconds = Math.max(1, Math.round(remaining / 1000));
+      eta.textContent = `~ ${seconds} second${seconds !== 1 ? 's' : ''} remaining`;
+      
+      // Update tasks list
+      tasks.innerHTML = '';
+      loadingPhases[currentPhase].tasks.forEach(task => {
+        const taskEl = document.createElement('div');
+        taskEl.className = 'task';
+        taskEl.innerHTML = `<b>${task}</b> <span class="pill">Pending</span>`;
+        tasks.appendChild(taskEl);
+      });
+      
+      // Update tip
+      tip.textContent = tips[currentPhase % tips.length];
+      
+      // Enable button when done
+      if (progress >= 100) {
+        enterBtn.disabled = false;
+        enterBtn.classList.add('ready');
+        status.textContent = "Ready!";
+        phase.textContent = "Complete";
+        eta.textContent = "~ Ready to go!";
+        
+        // Mark all tasks as completed
+        document.querySelectorAll('.pill').forEach(pill => {
+          pill.textContent = 'Done';
+          pill.style.color = 'var(--good)';
+          pill.style.borderColor = 'var(--good)';
+        });
+      }
+    }
+
+    function simulateLoading() {
+      if (currentPhase >= loadingPhases.length) return;
+      
+      const phaseDuration = loadingPhases[currentPhase].duration;
+      const phaseProgressIncrement = 100 / loadingPhases.length;
+      const startProgress = currentPhase * phaseProgressIncrement;
+      const endProgress = (currentPhase + 1) * phaseProgressIncrement;
+      
+      let phaseElapsed = 0;
+      const phaseInterval = setInterval(() => {
+        phaseElapsed += 50;
+        const phasePercent = Math.min(phaseElapsed / phaseDuration, 1);
+        progress = startProgress + phasePercent * phaseProgressIncrement;
+        
+        updateProgress();
+        
+        // Mark tasks as completed as we progress through the phase
+        const tasksInPhase = loadingPhases[currentPhase].tasks.length;
+        const completedTasks = Math.floor(phasePercent * tasksInPhase);
+        
+        const taskPills = tasks.querySelectorAll('.pill');
+        for (let i = 0; i < completedTasks && i < taskPills.length; i++) {
+          taskPills[i].textContent = 'Done';
+          taskPills[i].style.color = 'var(--good)';
+          taskPills[i].style.borderColor = 'var(--good)';
+        }
+        
+        if (phaseElapsed >= phaseDuration) {
+          clearInterval(phaseInterval);
+          currentPhase++;
+          simulateLoading();
+        }
+      }, 50);
+    }
+
+    // Start loading simulation after a brief delay
+    setTimeout(simulateLoading, 500);
+    
+    // Handle enter button click
+    enterBtn.addEventListener('click', () => {
+      document.body.classList.add('loaded');
+    });
+  </script>
+</body>
+</html>
